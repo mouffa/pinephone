@@ -167,9 +167,14 @@ First you inject the UTC time to the GNSS with the `at+qgpsxtratime` command
 
 which means to force the GNSS to accept this UTC time with error 3500ms/3,5s
 
-Then you download the binary file, you upload it to the UFS(User File System) of the modem via the `at+qfupl` command and finally you inject it into the GNSS engine with the `at+qgpsxtradata` command as it is described below.
+Get the UTC automatically with this command
 
-There are 2 types of binary files deployed in this mechanism, the "xtra.bin" and the "xtra2.bin", our research so far shows that the "xtra2.bin" file gives faster location fixing but we still don't know anything more of the difference between these files, maybe in a different thread in the future we will analyse the contents of these files.
+`echo at+qgpsxtratime=0,\"$(date -u +%Y/%m/%d,%T)\",1,1,3500 | sudo atinout - /dev/EG25.MODEM -`
+
+
+After that you download the satellite almanac binary file to the UFS of the modem via a Mobile Data connection and you inject it into the GNSS Engine the `at+qgpsxtradata` command as it is described below.
+
+There are at least 3 types of such binary files deployed in this mechanism, the "xtra.bin", "xtra2.bin" and "xtra3grc.bin", our research so far shows that the "xtra2.bin" file gives location fixing within seconds.
 
 The files can be downloaded either from "gpsonextra.net" or from "izatcloud.net", there are different mirrors for each domain, for example
 
@@ -189,35 +194,12 @@ http://xtrapath2.izatcloud.net/xtra2.bin
 http://xtrapath3.izatcloud.net/xtra.bin
 http://xtrapath3.izatcloud.net/xtra2.bin
 
-After you download one of the 2 files it is time to inject it in the GNSS engine. You should activate the gpsOneXTRA if it is not already activated with the following command  and restart the modem/phone, 
+After you download one of the 3 files it is time to inject it in the GNSS engine. You should activate the gpsOneXTRA if it is not already activated with the following command.
 
 `echo at+qgpsxtra=1 | sudo atinout - /dev/EG25.MODEM -`
 
-When you are using AT commands that operate on files in the modem what essentially happens is that the command switches the modem from "command mode" to "data mode", this means that the modem stops accepting AT commands returning the message "CONNECT", now according to the command it either waits for data or sends data to the device it was previously hearing for commands, namely the "/dev/EG25.MODEM", so you open a second terminal and you dump the contents of the binary file there with the `dd` command.
 
-1st Terminal 
--------------------------------------
 
-`echo at+qfupl=\"xtra2.bin\",32768,300| sudo atinout - /dev/EG25.MODEM -`
-
-This command creates a file named "xtra2.bin" in the UFS and tells the modem to enter the "data mode" until either 32768 bytes have been transferred or 300 seconds have passed, the "32768" is the size of the file you upload which you should first check and 300 seconds is a random value so that you have enough time to perform the operations.
-
-2nd Terminal 
--------------------------------------
-
-Issue the command after getting the "CONNECT" message on the 1st Terminal
-
-`sudo dd if=xtra2.bin of=/dev/EG25.MODEM`
-
-After the `dd` command finishes you will get on the 1st terminal the size of the transferred data,the checksum of the transmitted data and the message "OK".
-
-Now inject the data to the modem,
-
-`echo at+qgpsxtradata=\"xtra2.bin\",10080 | sudo atinout - /dev/EG25.MODEM -`
-
-"10080" is the maximum period of time that the data are valid measured in minutes and thus it is 7 days.
-
-Now you should be able to track more satellites and get your position after some minutes.
 
 --------------------------------------------------------------
 Modem file managing
