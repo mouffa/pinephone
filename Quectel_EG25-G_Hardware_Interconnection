@@ -1,0 +1,180 @@
+------------------------------------
+Quectel EG25-G hardware connection
+------------------------------------
+
+
+Studying page 15 of Pinephone's mainboard schematic for the modem
+
+https://files.pine64.org/doc/PinePhone/P...ematic.pdf
+
+we can see that we have a chip with 144 contacts where half of them are actually connected. Physically half of them are SMD pins around the chip and the rest are balls under the chip.
+
+Most of the connected pins are electrical grounding while the rest are voltage power, data lines, sychronisation lines and antennae.
+
+------------
+Pins
+------------
+
+14-17 -----> go to the SIM
+
+35, 47, 49 -----> are the antennae
+
+2, 4, 20, 21 -----> are controlling the power state of the modem and are driven by the eg25-manager
+
+7 -----> is the external power
+
+57-60 -----> are battery power
+
+71 -----> is the battery power for the USB
+
+115 -----> is the test button
+
+8, 9, 19, 22, 36, 46, 48, 50-54, 56, 72, 85-112 -----> are ground
+
+24-27 -----> are the PCM audio interface
+
+62 -----> is the ringing indicator
+
+64-68 -----> is the UART interface
+
+69, 70 -----> are the USB (+),(-) differential lines
+--------------------------------
+
+The communication with the A64 SoC is achieved by connecting the
+
+1) power control lines
+2) UART
+3) USB
+4) PCM
+
+to GPIO contacts of the A64 which can be easily accessed by the kernel for reading and writing operations.
+
+The audio data for calls are transferred by connecting the PCM contacts of the modem to the GPIO contacts of the A64 and the processing is done by the sound module in the SoC which is interfaced by ALSA.
+
+--------------------------
+A64 GPIO pins
+--------------------------
+
+The datasheet for A64 is here
+
+https://files.pine64.org/doc/datasheet/p...t_V1.1.pdf
+
+As we can see in 4.2 (page 23), the GPIO pins are divided in categories with different abilities denoted in the following way
+
+PB0 - 9 -----> 10 pins
+PC0 -16 -----> 17 pins
+PD0 - 24 -----> 25 pins
+PE0 -17 -----> 18 pins
+PF0 - 6 -----> 7 pins
+PG0 -13 -----> 14 pins
+PH0 -11 -----> 12 pins
+PL0 -12 -----> 13 pins
+
+Total: 116 pins
+
+------------------------------------
+Operating Modes
+------------------------------------
+
+1) Normal Operation
+
+a) Idle:  Software is active. The module has registered on the network, and it is
+ready to send and receive data.
+
+b) Talk/Data:  Network connection is ongoing. In this mode, the power consumption is
+decided by network setting and data transfer rate.
+--------------------
+2) Minimum Functionality
+
+Mode AT+CFUN=0 can set the module to a minimum functionality mode without removing
+the power supply. In this case, both RF function and (U)SIM card will be invalid.
+--------------------
+3) Airplane Mode 
+
+AT+CFUN=4 or W_DISABLE# pin can set the module to enter airplane mode. In this
+case, RF function will be invalid.
+--------------------
+4) Sleep Mode
+
+The current consumption of the module will be reduced to the minimal level. During
+this mode, the module can still receive paging message, SMS, voice call and
+TCP/UDP data from the network normally.
+--------------------
+5) Power Down
+
+Mode The power management unit shuts down the power supply. Software goes inactive.
+The serial interface is not accessible. Operating voltage (connected to VBAT_RF and
+VBAT_BB) remains applied.
+
+You can easily switch between modes 1,2,3 by 
+
+`echo at+cfun=0,0 | sudo atinout - /dev/EG25.AT -`
+`echo at+cfun=1,0 | sudo atinout - /dev/EG25.AT -`
+`echo at+cfun=4,0 | sudo atinout - /dev/EG25.AT -`
+
+mode 5 can be achieved with 
+
+`echo at+qpwd=1| sudo atinout - /dev/EG25.AT -`
+
+
+------------------------------------
+eg25-manager
+------------------------------------
+
+The source code of the manager can be found here
+
+https://gitlab.com/mobian1/devices/eg25-manager
+
+Studying the directory tree we can see 3 directories.
+
+1) "data", contains configurations files in ".toml" format which are installed in `/usr/share/eg25-manager`
+
+2) "src", contains the source code
+
+3) "udev", contains standard udev rules for the modem
+
+The "src" directory contains two types of files, the ".c" source code and the ".h" header files for the respective ".c" files.
+
+We can see the following files
+
+1) at.c/.h - renders the AT commands defined in the ".toml" configurations files
+
+2) gpio.c/.h - for the communication with the GPIO interface of the A64
+
+3) manager.c/.h - the eg25-manager
+
+4) mm-iface.c/.h -  for the communication with distributions using the ModemManager service
+
+5) ofono-iface.c/.h - for the communication with distributions using the ofono service
+
+6) suspend.c/.h - provides the ability to suspend the modem to sleep
+
+7) toml.c/.h - for processing the ".toml" cofiguration files
+
+8) udev.c/.h - for processing the udev rules
+
+------------------------------------
+How it works
+------------------------------------
+
+The main sequence of the code starts in "manager.c" at
+
+`int main(int argc, char *argv[])`
+
+1) it initialises some data structures, 
+2) reads the configuration files, 
+3) initialises the gpio chips (1c20800.pinctrl & 1f02c00.pinctrl)
+4) takes actions on the modem (power on/off, suspend, wake, sleep) by sending and reading signals to and from the modem pins
+
+2 -----> BB-AP-READY
+4 -----> BB-DISABLE
+20 -----> BB-RESET
+21 -----> BB-PWRKEY
+
+As we can see in the "gpio.c" code those signals are send easily via the "gpiod" library by calling functions like
+
+`gpiod_line_set_value(manager->gpio_out[GPIO_OUT_PWRKEY], 1);`
+
+You can find more information on the "gpiod" library here
+
+https://www.ics.com/blog/gpio-programming-exploring-libgpiod-library

@@ -1,0 +1,266 @@
+The modem always functions on the base of two services, the one is always eg25-manager which controls the power on/off of the device and the other one is either ofono or ModemManager, which can be controlled up to a point with `ofonoctl` and `mmcli` respectively.
+
+Here we use ofono which is deployed by Manjaro Plasma Mobile, while other distributions like Manjaro Phosh use ModemManager.
+
+Morover everything having to do with communications is controlled by the Telepathy framework in Plasma so here is a useful documentation book
+
+https://telepathy.freedesktop.org/doc/book/index.html
+
+-----------------------------------------------------------
+AT Commands
+-----------------------------------------------------------
+For the moment we leave aside the AT commands except for the case we want to completely power off the modem with the following command
+
+`echo at+qpwd=1 | sudo atinout - /dev/EG25.MODEM -`
+
+`qpwd=1` means normal power down while `qpwd=0` means emergency power down, these commands start with "q" because they are Quectel specific and shouldn`t be working on other manufacturers
+
+-----------------------------------------------------------
+Flight Mode
+-----------------------------------------------------------
+You can either disconnect the modem by stopping ofono and starting it again when needed or even cut the power completely like with the AT commands
+
+-------------- Disconnect ----------------
+`sudo systemctl stop ofono`
+
+-------------- Reconnect --------------
+`sudo systemctl start ofono`
+`ofonoctl online`
+`qdbus --system /quectelqmi_0 org.ofono.SimManager.EnterPin pin your_pin`
+
+-------------- Turn off ---------------
+`sudo systemctl stop eg25-manager`
+
+-------------- Turn on & Connect --------------
+`sudo systemctl stop ofono`
+`sudo systemctl start eg25-manager`
+`sudo systemctl start ofono`
+`ofonoctl online`
+`qdbus --system /quectelqmi_0 org.ofono.SimManager.EnterPin pin your_pin`
+
+Note that ofono affects the Bluetooth so don`t turn it off if you are using a Bluetooth connection at that moment. Ofono should be restarted so that the modem regains the `/quectelqmi_0` identity else it will be `/quectelqmi_(1,2,3....)` and the phone dialer won`t be able to make calls, you can then only trigger a call from the terminal as shown later.
+
+Some basic operations can be performed with ofonoctl, type
+
+`ofonoctl --help`
+
+------------------------------------------------------------
+oFono and D-Bus - Working with qdbus
+------------------------------------------------------------
+As every application/service ofono registers itself in DBus which can be manipulated by `qdbus`. If it is not installed open Discover and install Qt QDbusViewer.
+
+Here we assume that the modem is not rejected by the network operator based on its IMEI so we should have Call and SMS functionality out-of-the-box for most users and we will try to configure the mobile data and the MMS.
+
+If we command `qdbus --system` we will get a list of all the services registered in DBus, somewhere in the list we will see `org.ofono` so we issue `qdbus --system org.ofono` and we get the 2 lists for the two devices controlled by ofono, i.e. `/bluetooth` and `/quectelqmi_0`
+
+the one thing that interests us is the contexts, you should see at least 1 entry `/quectelqmi_0/context1`
+
+in fact we will need one for the internet and one for the MMS, so we should create one more context
+
+`qdbus --system /quectelqmi_0/context1`
+
+will show us all the possible actions that can be performed on the given context, so we will configure it for mobile data
+
+now we inspect the context with the `GetProperties` method which takes no arguments since the parenthesis is empty, so we issue
+
+`qdbus --system /quectelqmi_0/context1 org.ofono.ConnectionContext.GetProperties`
+
+here we need to set up the `AccessPointName` and the `AuthenticationMethod` to `none`, the `Name` can be set to anything you like , `Type` should already be `internet` and the `Protocol` should be `ip`. The Access Point Name (APN) is provided by your operator so search the operator`s website, let`s assume it is `internet.apn.com`
+
+`qdbus --system /quectelqmi_0/context1 org.ofono.ConnectionContext.SetProperty Name Internet`
+`qdbus --system /quectelqmi_0/context1 org.ofono.ConnectionContext.SetProperty AccessPointName internet.apn.com`
+`qdbus --system /quectelqmi_0/context1 org.ofono.ConnectionContext.SetProperty AuthenticationMethod none`
+
+now try to enable and disable the mobile data from drop down menu 2 times and the context should be activated giving you access to the internet, if not, reboot the phone and try again to enable and disable the mobile data 2 times.
+
+If the context is enabled you should see a tick in the `Active` box by going to Settings > Cellular Networks > Access Points or else you issue again
+
+`qdbus --system /quectelqmi_0/context1 org.ofono.ConnectionContext.GetProperties`
+
+and you will see `Active: true` plus some new entries like `DNS`, `IP address` etc with their respective values, the NetworkManager should automatically configure the `wwan0` interface which represents the Quectel modem.
+
+Another way to inspect the connection is with `ofonoctl wan`, the table should be filled with all the appropriate values and not be empty.
+
+
+-------------- MMS Configuration - Not Tested --------------
+
+For the MMS you should create a new context of MMS type, and then you have to configure the `MessageCenter` and `MessageProxy` values according to your operator
+
+`qdbus --system /quectelqmi_0 org.ofono.ConnectionManager.AddContext mms`
+`qdbus --system /quectelqmi_0/context2 org.ofono.ConnectionManager.SetProperty MessageCenter operators_Message_Center`
+`qdbus --system /quectelqmi_0/context2 org.ofono.ConnectionManager.SetProperty MessageProxy operators_Message_Proxy`
+
+you may need to set up other parametres too so follow your operator`s instructions
+
+try again to reboot your phone and check that the context is activated
+
+`qdbus --system /quectelqmi_0 org.ofono.ConnectionManager.GetContexts`
+`qdbus --system /quectelqmi_0/context2 org.ofono.ConnectionContext.GetProperties`
+
+-----------------------------------------------------------
+Full Set of Quectel D-Bus commands
+-----------------------------------------------------------
+
+The full set of commands that can be sent to the modem by ofono are listed with the following command though here we have formatted the text to be readable, it naturally appears as a dense list.
+
+`qdbus --system /quectelqmi_0`
+
+Some interesting command examples are shown
+
+`qdbus --system /quectelqmi_0 org.ofono.SimManager.EnterPin pin your_pin`
+
+`qdbus --system /quectelqmi_0 org.ofono.Modem.GetProperties`
+
+`qdbus --system /quectelqmi_0 org.ofono.NetworkMonitor.GetServingCellInformation`
+
+`qdbus --system /quectelqmi_0 org.ofono.RadioSettings.GetProperties`
+
+-------------- Making a call --------------
+`qdbus --system /quecteqmi_0 org.ofono.VoiceCallManager.Dial call_number "" `
+
+the quotation marks at the end stand for the second argument which is blank, after issuing the command the plasmaphonedialer should automatically pop up calling to the given number
+
+
+-------------------------------------------------
+Introspect
+-------------------------------------------------
+method QString org.freedesktop.DBus.Introspectable.Introspect()
+
+-------------------------------------------------
+Modem
+-------------------------------------------------
+signal void org.ofono.Modem.PropertyChanged(QString name, QDBusVariant value)
+method QVariantMap org.ofono.Modem.GetProperties()
+method void org.ofono.Modem.SetProperty(QString property, QDBusVariant value)
+
+-------------------------------------------------
+Voice Call Manager
+-------------------------------------------------
+signal void org.ofono.VoiceCallManager.BarringActive(QString type)
+signal void org.ofono.VoiceCallManager.CallAdded(QDBusObjectPath path, QVariantMap properties)
+signal void org.ofono.VoiceCallManager.CallRemoved(QDBusObjectPath path)
+signal void org.ofono.VoiceCallManager.Forwarded(QString type)
+signal void org.ofono.VoiceCallManager.PropertyChanged(QString name, QDBusVariant value)
+method QList<QDBusObjectPath> org.ofono.VoiceCallManager.CreateMultiparty()
+method QDBusObjectPath org.ofono.VoiceCallManager.Dial(QString number, QString hide_callerid)
+method void org.ofono.VoiceCallManager.DialLast()
+method void org.ofono.VoiceCallManager.DialMemory(uint memory_location)
+method {D-Bus type "a(oa{sv})"} org.ofono.VoiceCallManager.GetCalls()
+method QVariantMap org.ofono.VoiceCallManager.GetProperties()
+method void org.ofono.VoiceCallManager.HangupAll()
+method void org.ofono.VoiceCallManager.HangupMultiparty()
+method void org.ofono.VoiceCallManager.HoldAndAnswer()
+method QList<QDBusObjectPath> org.ofono.VoiceCallManager.PrivateChat(QDBusObjectPath call)
+method void org.ofono.VoiceCallManager.ReleaseAndAnswer()
+method void org.ofono.VoiceCallManager.ReleaseAndSwap()
+method void org.ofono.VoiceCallManager.SendTones(QString SendTones)
+method void org.ofono.VoiceCallManager.SwapCalls()
+method void org.ofono.VoiceCallManager.Transfer()
+
+-------------------------------------------------
+Sim Manager
+-------------------------------------------------
+signal void org.ofono.SimManager.PropertyChanged(QString name, QDBusVariant value)
+method void org.ofono.SimManager.ChangePin(QString type, QString oldpin, QString newpin)
+method void org.ofono.SimManager.EnterPin(QString type, QString pin)
+method QByteArray org.ofono.SimManager.GetIcon(uchar id)
+method QVariantMap org.ofono.SimManager.GetProperties()
+method void org.ofono.SimManager.LockPin(QString type, QString pin)
+method void org.ofono.SimManager.ResetPin(QString type, QString puk, QString newpin)
+method void org.ofono.SimManager.SetProperty(QString property, QDBusVariant value)
+method void org.ofono.SimManager.UnlockPin(QString type, QString pin)
+
+-------------------------------------------------
+Allowed APNs
+-------------------------------------------------
+method QStringList org.ofono.AllowedAccessPoints.GetAllowedAccessPoints()
+
+-------------------------------------------------
+Message Waiting
+-------------------------------------------------
+signal void org.ofono.MessageWaiting.PropertyChanged(QString name, QDBusVariant value)
+method QVariantMap org.ofono.MessageWaiting.GetProperties()
+method void org.ofono.MessageWaiting.SetProperty(QString property, QDBusVariant value)
+
+-------------------------------------------------
+Supplementary Services
+-------------------------------------------------
+signal void org.ofono.SupplementaryServices.NotificationReceived(QString message)
+signal void org.ofono.SupplementaryServices.PropertyChanged(QString name, QDBusVariant value)
+signal void org.ofono.SupplementaryServices.RequestReceived(QString message)
+method void org.ofono.SupplementaryServices.Cancel()
+method QVariantMap org.ofono.SupplementaryServices.GetProperties()
+method QString org.ofono.SupplementaryServices.Initiate(QString command, QDBusVariant& value)
+method QString org.ofono.SupplementaryServices.Respond(QString reply)
+
+-------------------------------------------------
+Network Monitor
+-------------------------------------------------
+method {D-Bus type "a(a{sv})"} org.ofono.NetworkMonitor.GetNeighbouringCellInformation()
+method QVariantMap org.ofono.NetworkMonitor.GetServingCellInformation()
+method void org.ofono.NetworkMonitor.RegisterAgent(QDBusObjectPath path, uint period)
+method void org.ofono.NetworkMonitor.UnregisterAgent(QDBusObjectPath agent)
+
+-------------------------------------------------
+Connection Manager
+-------------------------------------------------
+signal void org.ofono.ConnectionManager.ContextAdded(QDBusObjectPath path, QVariantMap properties)
+signal void org.ofono.ConnectionManager.ContextRemoved(QDBusObjectPath path)
+signal void org.ofono.ConnectionManager.PropertyChanged(QString name, QDBusVariant value)
+method QDBusObjectPath org.ofono.ConnectionManager.AddContext(QString type)
+method void org.ofono.ConnectionManager.DeactivateAll()
+method {D-Bus type "a(oa{sv})"} org.ofono.ConnectionManager.GetContexts()
+method QVariantMap org.ofono.ConnectionManager.GetProperties()
+method void org.ofono.ConnectionManager.RemoveContext(QDBusObjectPath path)
+method void org.ofono.ConnectionManager.ResetContexts()
+method void org.ofono.ConnectionManager.SetProperty(QString property, QDBusVariant value)
+
+-------------------------------------------------
+Radio Settings
+-------------------------------------------------
+signal void org.ofono.RadioSettings.PropertyChanged(QString name, QDBusVariant value)
+method QVariantMap org.ofono.RadioSettings.GetProperties()
+method void org.ofono.RadioSettings.SetProperty(QString property, QDBusVariant value)
+
+-------------------------------------------------
+Network Registration
+-------------------------------------------------
+signal void org.ofono.NetworkRegistration.PropertyChanged(QString name, QDBusVariant value)
+method {D-Bus type "a(oa{sv})"} org.ofono.NetworkRegistration.GetOperators()
+method QVariantMap org.ofono.NetworkRegistration.GetProperties()
+method void org.ofono.NetworkRegistration.Register()
+method {D-Bus type "a(oa{sv})"} org.ofono.NetworkRegistration.Scan()
+
+-------------------------------------------------
+Message Manager
+-------------------------------------------------
+signal void org.ofono.MessageManager.ImmediateMessage(QString message, QVariantMap info)
+signal void org.ofono.MessageManager.IncomingMessage(QString message, QVariantMap info)
+signal void org.ofono.MessageManager.MessageAdded(QDBusObjectPath path, QVariantMap properties)
+signal void org.ofono.MessageManager.MessageRemoved(QDBusObjectPath path)
+signal void org.ofono.MessageManager.PropertyChanged(QString name, QDBusVariant value)
+method {D-Bus type "a(oa{sv})"} org.ofono.MessageManager.GetMessages()
+method QVariantMap org.ofono.MessageManager.GetProperties()
+method QDBusObjectPath org.ofono.MessageManager.SendMessage(QString to, QString text)
+method void org.ofono.MessageManager.SetProperty(QString property, QDBusVariant value)
+
+-------------------------------------------------
+Push Notification
+-------------------------------------------------
+method void org.ofono.PushNotification.RegisterAgent(QDBusObjectPath path)
+method void org.ofono.PushNotification.UnregisterAgent(QDBusObjectPath path)
+
+-------------------------------------------------
+Smart Messaging
+-------------------------------------------------
+method void org.ofono.SmartMessaging.RegisterAgent(QDBusObjectPath path)
+method QDBusObjectPath org.ofono.SmartMessaging.SendAppointment(QString to, QByteArray appointment)
+method QDBusObjectPath org.ofono.SmartMessaging.SendBusinessCard(QString to, QByteArray card)
+method void org.ofono.SmartMessaging.UnregisterAgent(QDBusObjectPath path)
+
+-------------------------------------------------
+Long Term Evolution (LTE)
+-------------------------------------------------
+signal void org.ofono.LongTermEvolution.PropertyChanged(QString name, QDBusVariant value)
+method QVariantMap org.ofono.LongTermEvolution.GetProperties()
+method void org.ofono.LongTermEvolution.SetProperty(QString property, QDBusVariant value) 

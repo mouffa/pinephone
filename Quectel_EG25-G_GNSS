@@ -1,0 +1,263 @@
+Here we will demonstrate how we achieved to get positioning information through EG25-G's GNSS function, using AT commands through the `atinout` utility.
+
+-------------------------------------------------------------
+atinout
+-------------------------------------------------------------
+
+The utility reads AT commands from a source, sends them to the device and returns the device's reply to a destination. Here we use the following scheme.
+
+`echo AT-command | sudo atinout - /dev/EG25.MODEM -`
+
+That is, we echo the command to `atinout` which reads it from the standard input(first dash), sends it to the modem(/dev/EG25.MODEM) and returns the output to the standard output(second dash).
+
+If you want to save the output to a file then issue
+
+`echo AT-command | sudo atinout - /dev/EG25.MODEM - > file`
+
+or if you want both to save it in a file and see it on the terminal
+
+`echo AT-command | sudo atinout - /dev/EG25.MODEM - | tee file`
+
+When a command contains a quote(") then the backslash has to be preceded by a backslash(\), for example
+
+`echo at+qgpsgnmea=\"gsv\" | sudo atinout - /dev/EG25.MODEM -`
+
+a command which returns information about the satellites tracked by the modem's GNSS system.
+
+
+-------------------------------------------------------------
+GNSS configuration & location data acquisition
+-------------------------------------------------------------
+
+!!! Important  Notice !!! :    The GNSS engine comes in a default pre-configured condition where it would be good to check the configuration of every function and either disable it or change it so that it doesn't cause problem. For example the Qualcomm "gpsOneXTRA" function is by default turned on but the binary file which is based is outdated and has to be replaced. 
+
+The basic steps to utilise the mechanism are the following.
+
+0. Configure the GNSS
+1. Turn it on.(*)
+2. Acquire location data.
+3. Turn it off.
+
+(*)[The GNSS can be also configured to start automatically when the modem turns on with the following command
+
+`echo at+qgpscfg=\"autogps\",1 | sudo atinout - /dev/EG25.MODEM -`]
+
+---------------------------
+
+The assistive technologies A-GPS and gpsOneXtra will be analysed in a dedicated section later.
+
+Every command can return either
+
+1. 'OK' plus information, the command was executed successfully
+
+2. 'Error', the command wasn't executed
+
+3. '+CME [error_number]', the command was executed with errors
+
+In case (2) just repeat the command until you get either (1) or (3).
+
+The modem often turns off while trying to execute GNSS commands and you have to turn it on again by restarting the `eg25-manager` service.
+
+----------------------------
+
+The configuration should be performed with the GNSS turned off and then the settings remain in the modem's memory. The configuration is always performed by the command 
+
+`at+qgpscfg=\"[function]\",[parametre_value]`
+
+if we omit the parametre then it returns the current configuration of the [function] but it may also return an `Error` if the [function] is not configured at all, then just configure it and check it again.
+
+-----------------------------
+
+GNSS can track 4 different Global Positioning constellations, GPS(USA), Galileo(European), GLONASS(Russian) and Beidou(Chinese).
+
+The data are presented to the user as "NMEA sentences" of different "types", that is ASCII strings which contain information according to the specific "NMEA type of sentence", each "type" contains different information, for example if you want to know how many GPS satellites are visible by the device then the "NMEA sentence type" is "GPGSV", every GNSS constellation system supports different "types".
+
+-----------------------------
+
+We achieved to track 4 GPS satellites and acquire positioning data in an open air space of 107 metres altitude, for the time being inside the urban area we can track only 2 satellites and thus we can not establish our location. The necessary commands are shown below.
+
+-----------------------------
+Configuration
+-----------------------------
+
+Most functions are preconfigured with default values, check them by omitting the parametres.
+
+`echo at+qgpscfg=\"outport\",\"usbnmea\" | sudo atinout - /dev/EG25.MODEM -` # send the data to the "usbnmea" port
+
+`echo at+qgpscfg=\"nmeasrc\",1 | sudo atinout - /dev/EG25.MODEM -` # enable NMEA sentences
+
+`echo at+qgpscfg=\"gpsnmeatype\",31 | sudo atinout - /dev/EG25.MODEM -` # enable all types of NMEA sentences
+
+`echo at+qgpscfg=\"galileonmeatype\",1 | sudo atinout - /dev/EG25.MODEM -` # enable NMEA GSV sentences for Galileo, GPS is always enabled
+
+`echo at+qgpscfg=\"gnssconfig\",1 | sudo atinout - /dev/EG25.MODEM -` # track all constellations
+
+`echo at+qgpscfg=\"agpsposmode\",33488767 | sudo atinout - /dev/EG25.MODEM -` # GPS assisted by the cellular network, default value, it is a 24-bit number where each bit enables a different option, !!! TURN ON THE MOBILE DATA BEFORE TURNING ON THE GPS, IT WILL USE DATA !!!
+
+`echo at+qgpscfg=\"agnssprotocol\",3,1287 | sudo atinout - /dev/EG25.MODEM -` # enable all protocols
+
+-----------------------------
+Operation
+-----------------------------
+
+`echo at+qgps=1 | sudo atinout - /dev/EG25.MODEM -` # turn on the GNSS
+
+`echo at+qgpsgnmea=\"gsv\" | sudo atinout - /dev/EG25.MODEM -` # show the satellites tracked
+
+`echo at+qgpsgnmea=\"gga\" | sudo atinout - /dev/EG25.MODEM -` # show the location if it is fixed
+
+`echo at+qgpsend | sudo atinout - /dev/EG25.MODEM -` # turn off the GNSS
+
+The command `at+qgpsloc` for getting the location didn't work, before fixing the location it returned error 516 which means the location is not fixed and when the location was fixed it returned error 502 which means that the operation is not available.
+
+After you turn on the GNSS you have to wait and maybe repeat the GSV sentence command to see if you are tracking enough satellites to fix the location.
+
+-----------------------------
+Output
+-----------------------------
+
+An example output is the GGA sentence from the GPS, that is the GPGGA sentence which provide us with the location information if it is fixed by the modem.
+
+$GPGGA,hhmmss.ss,llll.ll,a,yyyyy.yy,a,x,xx,x.x,x.x,M,x.x,M,x.x,xxxx*hh
+
+The interpretation of the 15 fields is the following,
+
+1    = UTC of Position
+2    = Latitude
+3    = N or S
+4    = Longitude
+5    = E or W
+6    = GPS quality indicator (0=invalid; 1=GPS fix; 2=Diff. GPS fix)
+7    = Number of satellites in use [not those in view]
+8    = Horizontal dilution of position
+9    = Antenna altitude above/below mean sea level (geoid)
+10  = Meters  (Antenna height unit)
+11  = Geoidal separation (Diff. between WGS-84 earth ellipsoid and
+      mean sea level.  -=geoid is below WGS-84 ellipsoid)
+12  = Meters  (Units of geoidal separation)
+13  = Age in seconds since last update from diff. reference station
+14  = Diff. reference station ID#
+15  = Checksum
+
+For more examples look here,
+
+http://aprs.gids.nl/nmea/
+
+--------------------------------------------------------------
+A-GPS & gpsOneXTRA
+--------------------------------------------------------------
+
+The GNSS engine offers two assistive functions for the positioning, without them the location fixing maybe difficult or impossible and we say that the GNSS works in "stand-alone" mode.
+
+-------------------------------------
+
+A-GPS uses the cellular network with brief internet sessions to acquire data needed to calculate the position faster, so turn on the mobile data before the GNSS, if you haven't configure the mobile internet connection yet then read the other thread about configuring the modem.
+
+The command accepts only one argument which is a 24-bit integer whose each bit enables a different assisting method. Check the manual for details.
+
+`echo at+qgpscfg=\"agpsposmode\",33488767 | sudo atinout -  /dev/EG25.MODEM -`
+
+-------------------------------------
+
+gpsOneXTRA is a function provided by Qualcomm and uses the UTC time in conjuntion with a binary file which are injected into the GNSS engine and assists it to fix the location. 
+
+First you inject the UTC time to the GNSS with the `at+qgpsxtratime` command 
+
+`echo at+qgpsxtratime=0,\"2021/06/30,08:30:30",1,1,3500 | sudo atinout - /dev/EG25.MODEM -`
+
+which means to force the GNSS to accept this UTC time with error 3500ms/3,5s
+
+Then you download the binary file, you upload it to the UFS(User File System) of the modem via the `at+qfupl` command and finally you inject it into the GNSS engine with the `at+qgpsxtradata` command as it is described below.
+
+There are 2 types of binary files deployed in this mechanism, the "xtra.bin" and the "xtra2.bin", our research so far shows that the "xtra2.bin" file gives faster location fixing but we still don't know anything more of the difference between these files, maybe in a different thread in the future we will analyse the contents of these files.
+
+The files can be downloaded either from "gpsonextra.net" or from "izatcloud.net", there are different mirrors for each domain, for example
+
+http://xtra1.gpsonextra.net/xtra.bin
+http://xtra1.gpsonextra.net/xtra2.bin
+http://xtra2.gpsonextra.net/xtra.bin
+http://xtra2.gpsonextra.net/xtra2.bin
+http://xtra3.gpsonextra.net/xtra.bin
+http://xtra3.gpsonextra.net/xtra2.bin
+
+and
+
+http://xtrapath1.izatcloud.net/xtra.bin
+http://xtrapath1.izatcloud.net/xtra2.bin
+http://xtrapath2.izatcloud.net/xtra.bin
+http://xtrapath2.izatcloud.net/xtra2.bin
+http://xtrapath3.izatcloud.net/xtra.bin
+http://xtrapath3.izatcloud.net/xtra2.bin
+
+After you download one of the 2 files it is time to inject it in the GNSS engine. You should activate the gpsOneXTRA if it is not already activated with the following command  and restart the modem/phone, 
+
+`echo at+qgpsxtra=1 | sudo atinout - /dev/EG25.MODEM -`
+
+When you are using AT commands that operate on files in the modem what essentially happens is that the command switches the modem from "command mode" to "data mode", this means that the modem stops accepting AT commands returning the message "CONNECT", now according to the command it either waits for data or sends data to the device it was previously hearing for commands, namely the "/dev/EG25.MODEM", so you open a second terminal and you dump the contents of the binary file there with the `dd` command.
+
+1st Terminal 
+-------------------------------------
+
+`echo at+qfupl=\"xtra2.bin\",32768,300| sudo atinout - /dev/EG25.MODEM -`
+
+This command creates a file named "xtra2.bin" in the UFS and tells the modem to enter the "data mode" until either 32768 bytes have been transferred or 300 seconds have passed, the "32768" is the size of the file you upload which you should first check and 300 seconds is a random value so that you have enough time to perform the operations.
+
+2nd Terminal 
+-------------------------------------
+
+Issue the command after getting the "CONNECT" message on the 1st Terminal
+
+`sudo dd if=xtra2.bin of=/dev/EG25.MODEM`
+
+After the `dd` command finishes you will get on the 1st terminal the size of the transferred data,the checksum of the transmitted data and the message "OK".
+
+Now inject the data to the modem,
+
+`echo at+qgpsxtradata=\"xtra2.bin\",10080 | sudo atinout - /dev/EG25.MODEM -`
+
+"10080" is the maximum period of time that the data are valid measured in minutes and thus it is 7 days.
+
+Now you should be able to track more satellites and get your position after some minutes.
+
+--------------------------------------------------------------
+Modem file managing
+--------------------------------------------------------------
+
+For more commands on how to manage the files in the modem's UFS and RAM check the second attached manual.
+
+Examples,
+
+`echo at+qfdel=\"xtra2.bin\"| sudo atinout - /dev/EG25.MODEM -` # delete file "xtra2.bin" from UFS
+`echo at+qflds| sudo atinout - /dev/EG25.MODEM -` # show storage information
+`echo at+qflst| sudo atinout - /dev/EG25.MODEM -` # list storage files
+
+--------------------------------------------------------------
+NMEA sentences supported by the modem
+--------------------------------------------------------------
+
+
+GPS NMEA sentences have the prefix "GP":
+-----------------------------
+GPGGA - Global positioning system fix data, such as time, position, etc.
+GPRMC - Recommended minimum specific GNSS data
+GPGSV - GNSS satellites in view, such as number of satellites in view, satellite ID numbers, etc.
+GPGSA - GNSS DOP and active satellites
+GPVTG - Course over ground and ground speed
+
+
+GLONASS NMEA sentences have the prefixes "GL" and "GN":
+-----------------------------
+GLGSV - GNSS satellites in view, such as number of satellites in view, satellite ID numbers, etc.
+GNGSA - GNSS DOP and active satellites
+GNGNS - GNSS fix data
+
+
+Galileo NMEA sentences have the prefixes "GA":
+-----------------------------
+GAGSV - GNSS satellites in view, such as number of satellites in view, satellite ID numbers, etc.
+
+
+BeiDou NMEA sentences have the prefixes "PQ":
+-----------------------------
+PQGSV - GNSS satellites in view, such as number of satellites in view, satellite ID numbers, etc.
+PQGSA - GNSS DOP and active satellites
