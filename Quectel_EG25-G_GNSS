@@ -172,9 +172,14 @@ Get the UTC automatically with this command
 `echo at+qgpsxtratime=0,\"$(date -u +%Y/%m/%d,%T)\",1,1,3500 | sudo atinout - /dev/EG25.MODEM -`
 
 
-After that you download the satellite almanac binary file to the UFS of the modem via a Mobile Data connection and you inject it into the GNSS Engine the `at+qgpsxtradata` command as it is described below.
+After that you download the satellite almanac binary file to the RAM or the UFS of the modem via a Mobile Data connection and you inject it into the GNSS Engine the `at+qgpsxtradata` command as it is described below.
 
-There are at least 3 types of such binary files deployed in this mechanism, the "xtra.bin", "xtra2.bin" and "xtra3grc.bin", our research so far shows that the "xtra2.bin" file gives location fixing within seconds.
+There are 4 types of such binary files deployed in this mechanism
+
+xtra.bin (GPS)
+xtra2.bin (GPS+GLONASS)
+xtra3grc.bin (GPS+GLONASS+BeiDou)
+xtra3grcej.bin (GPS+GLONASS+BeiDou+Galileo)
 
 The files can be downloaded either from "gpsonextra.net" or from "izatcloud.net", there are different mirrors for each domain, for example
 
@@ -194,13 +199,52 @@ http://xtrapath2.izatcloud.net/xtra2.bin
 http://xtrapath3.izatcloud.net/xtra.bin
 http://xtrapath3.izatcloud.net/xtra2.bin
 
-After you download one of the 3 files it is time to inject it in the GNSS engine.
+After you download one of the 4 files it is time to inject it in the GNSS engine.
 
 You should activate the gpsOneXTRA if it is not already activated with the following command.
 
 `echo at+qgpsxtra=1 | sudo atinout - /dev/EG25.MODEM -`
 
-{{{{{ Under Development }}}}}}
+{{{{{ Under Development - a copy from the manual follows }}}}}}
+
+AT+QGPSXTRA=1 //Enable XTRA.
+OK
+//Restart UC20, enable XTRA of GNSS engine.
+//If XTRA data is invalid (query by AT+QGPSXTRADATA?), then perform the following procedures.
+//Before downloading XTRA file by AT+QHTTPGET, please first configure the PDP context parameters
+of <apn>, <username>, <password> and PDP context ID by AT+QICSGP, then activate the PDP
+context ID by AT+QIACT. ( For more details about this command, please refer to document
+Quectel_UC20_HTTP_AT_Commands_Manual”).
+AT+QHTTPCFG=“contextid”,1 //Set PDP context ID.
+OK
+AT+QICSGP=1,1,“UNINET”,“”,“”,1 //Configure context 1, APN is ”UNINET” for China Unicom.
+OK
+AT+QIACT=1 //Activate context 1.Quectel
+OK
+
+AT+QIACT? //Query the state of context.
++QIACT: 1,1,1,"10.7.157.1"
+OK
+AT+QHTTPURL=40,80 //Set the XTRA data URL which will be downloaded.
+CONNECT
+http://xtrapath1.izatcloud.net/xtra2.bin
+OK
+AT+QHTTPGET=80 //Start downloading. Send HTTP GET request and
+maximum response time is 80s
+OK
++QHTTPGET: 0,200,60831 //A few seconds later, it will report the HTTP response.
+AT+QHTTPREAD=1,“RAM:xtra2.bin”,80 //Store data to RAM file: RAM:xtra2.bin.
+OK
++QHTTPREADFILE: 0 //A few seconds later, it will report the URC for the result.
+//The current UTC time is about 2015/05/07,05:30:23.
+AT+QGPSXTRATIME=0,“2015/05/07,05:30:23”,1,1,5 //Inject XTRA time to GNSS engine.
+OK
+AT+QGPSXTRADATA=“RAM:xtra2.bin” //Inject XTRA data to GNSS engine successfully.
+OK
+AT+QFDEL=“RAM:xtra2.bin” //Delete XTRA data file from RAM file
+OK
+AT+QGPS=1 //Turn on GNSS engine
+OK
 
 
 --------------------------------------------------------------
