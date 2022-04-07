@@ -194,11 +194,13 @@ http://xtrapath2.izatcloud.net/xtra2.bin
 http://xtrapath3.izatcloud.net/xtra.bin
 http://xtrapath3.izatcloud.net/xtra2.bin
 
-After you download one of the 3 files it is time to inject it in the GNSS engine. You should activate the gpsOneXTRA if it is not already activated with the following command.
+After you download one of the 3 files it is time to inject it in the GNSS engine.
+
+You should activate the gpsOneXTRA if it is not already activated with the following command.
 
 `echo at+qgpsxtra=1 | sudo atinout - /dev/EG25.MODEM -`
 
-
+{{{{{ Under Development }}}}}}
 
 
 --------------------------------------------------------------
