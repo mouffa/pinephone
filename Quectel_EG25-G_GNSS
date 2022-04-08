@@ -161,19 +161,6 @@ The command accepts only one argument which is a 24-bit integer whose each bit e
 
 gpsOneXTRA is a function provided by Qualcomm and uses the UTC time in conjuntion with a binary file which are injected into the GNSS engine and assists it to fix the location. 
 
-First you inject the UTC time to the GNSS with the `at+qgpsxtratime` command 
-
-`echo at+qgpsxtratime=0,\"2021/06/30,08:30:30",1,1,3500 | sudo atinout - /dev/EG25.MODEM -`
-
-which means to force the GNSS to accept this UTC time with error 3500ms/3,5s
-
-Get the UTC automatically with this command
-
-`echo at+qgpsxtratime=0,\"$(date -u +%Y/%m/%d,%T)\",1,1,3500 | sudo atinout - /dev/EG25.MODEM -`
-
-
-After that you download the satellite almanac binary file to the RAM or the UFS of the modem via a Mobile Data connection and you inject it into the GNSS Engine the `at+qgpsxtradata` command as it is described below.
-
 There are 4 types of such binary files deployed in this mechanism
 
 xtra.bin (GPS)
@@ -199,14 +186,10 @@ http://xtrapath2.izatcloud.net/xtra2.bin
 http://xtrapath3.izatcloud.net/xtra.bin
 http://xtrapath3.izatcloud.net/xtra2.bin
 
-After you download one of the 4 files it is time to inject it in the GNSS engine.
-
-You should activate the gpsOneXTRA if it is not already activated with the following command.
+{{{{{ Under Development - a copy from the manual follows }}}}}}
+The full procedure is as follows.
 
 `echo at+qgpsxtra=1 | sudo atinout - /dev/EG25.MODEM -`
-
-{{{{{ Under Development - a copy from the manual follows }}}}}}
-
 AT+QGPSXTRA=1 //Enable XTRA.
 OK
 //Restart UC20, enable XTRA of GNSS engine.
@@ -237,6 +220,16 @@ AT+QHTTPREAD=1,“RAM:xtra2.bin”,80 //Store data to RAM file: RAM:xtra2.bin.
 OK
 +QHTTPREADFILE: 0 //A few seconds later, it will report the URC for the result.
 //The current UTC time is about 2015/05/07,05:30:23.
+
+First you inject the UTC time to the GNSS with the `at+qgpsxtratime` command 
+
+`echo at+qgpsxtratime=0,\"2021/06/30,08:30:30",1,1,3500 | sudo atinout - /dev/EG25.MODEM -`
+
+which means to force the GNSS to accept this UTC time with error 3500ms/3,5s
+
+Get the UTC automatically with this command
+
+`echo at+qgpsxtratime=0,\"$(date -u +%Y/%m/%d,%T)\",1,1,3500 | sudo atinout - /dev/EG25.MODEM -`
 AT+QGPSXTRATIME=0,“2015/05/07,05:30:23”,1,1,5 //Inject XTRA time to GNSS engine.
 OK
 AT+QGPSXTRADATA=“RAM:xtra2.bin” //Inject XTRA data to GNSS engine successfully.
