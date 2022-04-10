@@ -186,13 +186,23 @@ http://xtrapath2.izatcloud.net/xtra2.bin
 http://xtrapath3.izatcloud.net/xtra.bin
 http://xtrapath3.izatcloud.net/xtra2.bin
 
-{{{{{ Under Development - a copy from the manual follows }}}}}}
+{{{{{ -------------- Under Development ------------------- }}}}}}
+
 The full procedure is as follows.
 
+If the GNSS is ON then turn it OFF with 
+
+`echo at+qgps=0 | sudo atinout - /dev/EG25.MODEM -`
+
+If gpsOneXTRA is OFF then turn it ON with the following command and reboot the modem or the phone.
+
 `echo at+qgpsxtra=1 | sudo atinout - /dev/EG25.MODEM -`
-AT+QGPSXTRA=1 //Enable XTRA.
-OK
-//Restart UC20, enable XTRA of GNSS engine.
+
+Remember that you can always check the status of a command and the acceptable parametres with the following commands.
+
+`echo at+command? | sudo atinout - /dev/EG25.MODEM -`
+`echo at+command=? | sudo atinout - /dev/EG25.MODEM -`
+
 //If XTRA data is invalid (query by AT+QGPSXTRADATA?), then perform the following procedures.
 //Before downloading XTRA file by AT+QHTTPGET, please first configure the PDP context parameters
 of <apn>, <username>, <password> and PDP context ID by AT+QICSGP, then activate the PDP
