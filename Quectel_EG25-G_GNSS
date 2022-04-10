@@ -168,7 +168,9 @@ xtra2.bin (GPS+GLONASS)
 xtra3grc.bin (GPS+GLONASS+BeiDou)
 xtra3grcej.bin (GPS+GLONASS+BeiDou+Galileo)
 
-The files can be downloaded either from "gpsonextra.net" or from "izatcloud.net", there are different mirrors for each domain, for example
+The files can be downloaded either from "gpsonextra.net" or from "izatcloud.net", there are different mirrors for each domain,
+
+for example
 
 http://xtra1.gpsonextra.net/xtra.bin
 http://xtra1.gpsonextra.net/xtra2.bin
@@ -185,6 +187,8 @@ http://xtrapath2.izatcloud.net/xtra.bin
 http://xtrapath2.izatcloud.net/xtra2.bin
 http://xtrapath3.izatcloud.net/xtra.bin
 http://xtrapath3.izatcloud.net/xtra2.bin
+
+etc
 
 {{{{{ -------------- Under Development ------------------- }}}}}}
 
@@ -203,21 +207,29 @@ Remember that you can always check the status of a command and the acceptable pa
 `echo at+command? | sudo atinout - /dev/EG25.MODEM -`
 `echo at+command=? | sudo atinout - /dev/EG25.MODEM -`
 
-//If XTRA data is invalid (query by AT+QGPSXTRADATA?), then perform the following procedures.
-//Before downloading XTRA file by AT+QHTTPGET, please first configure the PDP context parameters
-of <apn>, <username>, <password> and PDP context ID by AT+QICSGP, then activate the PDP
-context ID by AT+QIACT. ( For more details about this command, please refer to document
-Quectel_UC20_HTTP_AT_Commands_Manual”).
+The XTRADATA (Satellite Alamanac) is valid at most for 1 week (10080 seconds) because these data change ver fast, after that you have to load the new almanac else the GNSS will try to get the position in Stand-Alone mode meaning up to 1 hour to get a position fix.
+
+Check the valitdity of the Almanac with
+
+`echo at+qgpsxtradata=? | sudo atinout - /dev/EG25.MODEM -`
+
+Now you have 2 choices, you either start a mobile data session from your GUI or you start it with AT commands as follows
+
+Configure the PDP context parameters of <apn>, <username>, <password> and PDP context ID by AT+QICSGP, then activate the PDP
+context ID by AT+QIACT.
+
 AT+QHTTPCFG=“contextid”,1 //Set PDP context ID.
 OK
 AT+QICSGP=1,1,“UNINET”,“”,“”,1 //Configure context 1, APN is ”UNINET” for China Unicom.
 OK
 AT+QIACT=1 //Activate context 1.Quectel
 OK
-
 AT+QIACT? //Query the state of context.
 +QIACT: 1,1,1,"10.7.157.1"
 OK
+
+After the establishment of the session it's time to download the Almanac
+
 AT+QHTTPURL=40,80 //Set the XTRA data URL which will be downloaded.
 CONNECT
 http://xtrapath1.izatcloud.net/xtra2.bin
@@ -229,6 +241,8 @@ OK
 AT+QHTTPREAD=1,“RAM:xtra2.bin”,80 //Store data to RAM file: RAM:xtra2.bin.
 OK
 +QHTTPREADFILE: 0 //A few seconds later, it will report the URC for the result.
+
+
 //The current UTC time is about 2015/05/07,05:30:23.
 
 First you inject the UTC time to the GNSS with the `at+qgpsxtratime` command 
