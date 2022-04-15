@@ -220,12 +220,12 @@ context ID by AT+QIACT.
 
 AT+QHTTPCFG=“contextid”,1 //Set PDP context ID.
 OK
-AT+QICSGP=1,1,“UNINET”,“”,“”,1 //Configure context 1, APN is ”UNINET” for China Unicom.
+AT+QICSGP=1,1,“my.apn”,“”,“”,1 //Configure context 1, "my.apn" should be replaced with your provider's APN
 OK
-AT+QIACT=1 //Activate context 1.Quectel
+AT+QIACT=1 //Activate context 1
 OK
 AT+QIACT? //Query the state of context.
-+QIACT: 1,1,1,"10.7.157.1"
++QIACT: 1,1,1,"10.7.157.1" // you should see your public WWAN IP adress
 OK
 
 After the establishment of the session it's time to download the Almanac
@@ -234,32 +234,37 @@ AT+QHTTPURL=40,80 //Set the XTRA data URL which will be downloaded.
 CONNECT
 http://xtrapath1.izatcloud.net/xtra2.bin
 OK
+
 AT+QHTTPGET=80 //Start downloading. Send HTTP GET request and
 maximum response time is 80s
 OK
 +QHTTPGET: 0,200,60831 //A few seconds later, it will report the HTTP response.
+
 AT+QHTTPREAD=1,“RAM:xtra2.bin”,80 //Store data to RAM file: RAM:xtra2.bin.
 OK
 +QHTTPREADFILE: 0 //A few seconds later, it will report the URC for the result.
 
 
-//The current UTC time is about 2015/05/07,05:30:23.
+Now you inject the UTC time to the GNSS with the `at+qgpsxtratime` command 
 
-First you inject the UTC time to the GNSS with the `at+qgpsxtratime` command 
+Give the UTC manually
 
 `echo at+qgpsxtratime=0,\"2021/06/30,08:30:30",1,1,3500 | sudo atinout - /dev/EG25.MODEM -`
 
 which means to force the GNSS to accept this UTC time with error 3500ms/3,5s
 
-Get the UTC automatically with this command
+or give the UTC automatically with this command
 
 `echo at+qgpsxtratime=0,\"$(date -u +%Y/%m/%d,%T)\",1,1,3500 | sudo atinout - /dev/EG25.MODEM -`
-AT+QGPSXTRATIME=0,“2015/05/07,05:30:23”,1,1,5 //Inject XTRA time to GNSS engine.
-OK
+
+Inject the Almanac
+
 AT+QGPSXTRADATA=“RAM:xtra2.bin” //Inject XTRA data to GNSS engine successfully.
 OK
+
 AT+QFDEL=“RAM:xtra2.bin” //Delete XTRA data file from RAM file
 OK
+
 AT+QGPS=1 //Turn on GNSS engine
 OK
 
