@@ -1,0 +1,86 @@
+ Here we compile and run the LVGL library demos on Arch Linux Barebone to show that we can create useful graphics through the Frame Buffer.
+
+https://lvgl.io/
+
+1) Install the basic dependencies for program development
+------------------------------------------------------------
+`sudo pacman -Syu base-devel`
+
+2) Clone the relevant repositories
+------------------------------------------------------------
+`git clone --recursive https://github.com/lvgl/lv_port_linux_frame_buffer`
+
+3) Adjust to Pinephone's screen resolution
+------------------------------------------------------------
+Edit the file "main.c" in "lv_port_linux_frame_buffer" and change Line 31 from 800 to 720 and Line 32 from 480 to 1440,
+
+disp_drv.hor_res    = 720;
+disp_drv.ver_res    = 1440;
+
+4) Enable Touchscreen
+------------------------------------------------------------
+We use the "evdev" event driver, the raw data from the touchscreen for Arch Barebone are output at "/dev/input/event1", the rest of the events in the folder are the the physical buttons and the sense of USB, headphone and vibration.
+
+We need to edit 2 files, "lv_drv_conf.h" and "main.c"
+
+-------- lv_drv_conf.h ----------
+
+Line 389 should be changed to
+
+# define USE_EVDEV 1
+
+Line 397 should be changed to
+
+# define EVDEV_NAME "/dev/input/event1"
+
+--------- main.c -----------
+
+At the beginning of the file we should include the header
+
+#include "lv_drivers/indev/evdev.h"
+
+Right before Line 36 where we call the demo function we should initialise the touchscreen by adding the following code
+
+/* enable event input*/
+evdev_init();
+
+/* enable touchscreen*/
+lv_indev_drv_t indev_drv;
+lv_indev_drv_init(&indev_drv);
+indev_drv.type = LV_INDEV_TYPE_POINTER;
+indev_drv.read_cb = evdev_read;
+lv_indev_drv_register(&indev_drv);
+
+5) Compile by running `make` in "lv_port_linux_frame_buffer"
+------------------------------------------------------------
+The command will generate an executable named "demo". If you want to change something and recompile then first remove all the object files of the edited files and the "demo" and `make` again.
+
+`rm [edited-files].o`
+`rm demo`
+`make`
+
+6) Run the program on Arch Linux Barebone
+------------------------------------------------------------
+`./demo`
+
+7) Exit the program pressing CTRL+C
+------------------------------------------------------------
+
+
+Note :
+------------
+
+By default the code runs the `lv_demo_widgets` demo, you can test the rest of the 5 demos by changing line 36 in "main.c" to one of the following choices
+
+lv_demo_widgets();
+lv_demo_music();
+lv_demo_keypad_encoder();
+lv_demo_benchmark();
+lv_demo_stress();
+
+then remove "main.o" and "demo" and `make`
+
+`rm main.o`
+`rm demo`
+`make`
+
