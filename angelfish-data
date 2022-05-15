@@ -1,6 +1,6 @@
 Angelfish stores all its data like cookies, history, bookmarks, ad-block filters etc in `~/.local/share/KDE/angelfish`.
 
-Inside this directory there are two directories, 'QtWebEngine' and `filterlists` and a database `angelfish.sqlite`.
+Inside this directory there are two directories, ```QtWebEngine``` and `filterlists` and a database `angelfish.sqlite`.
 
 'QtWebEngine' stores the profiles with their cookies through a complicated directory structure containing text files, databases and binary files.
 
