@@ -1,0 +1,17 @@
+Anglefish stores all its data like cookies, history, bookmarks, ad-block filters etc in `~/.local/share/KDE/angelfish`.
+
+Inside this directory there are two directories, `QtWebengine` and `filterlists` and a database `angelfish.sqlite`.
+
+`QtWebengine` stores the profiles with their cookies through a complicated directory structure containing text files, databases and binary files.
+
+`filterlists` contains the text files with ad-block adresses
+
+`angelfish.sqlite` is an `sqlite3` database which contains the bookmarks and the history and can be manipulated through the `sqlite3` environment.
+
+You can dump a database as a text file with the following commands.
+
+`sqlite3` - Enter the environment
+`.open angelfish.sqlite` - Load the database
+`.output your_filename` - Set the output as a file with filename `your_filename`
+`.dump` - Dump the content as text
+`.exit` - Exit the environment
