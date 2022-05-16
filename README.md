@@ -1,6 +1,6 @@
 # pinephone
 
-All my work on the original PinePhone, most of these information should apply on PinePhone PRO too as well as other project which use the same or similar hardware and software.
+All my work on the original PinePhone, most of these information should apply on PinePhone PRO too as well as other projects which use the same or similar hardware and software.
 
 Alphabetical project listing:
 
