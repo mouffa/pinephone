@@ -2,7 +2,7 @@
 
 All my work on the original PinePhone, most of these information should apply on PinePhone PRO too as well as other projects which use the same or similar hardware and software.
 
-Alphabetical project listing:
+Project listing:
 
 1) LVGL demos tuned to run on the PinePhone, LVGL is a library to create graphics directly in the framebuffer is mostly used in emebedded systems like photocopy machines, automotive applications etc.
 
