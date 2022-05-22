@@ -9,3 +9,5 @@ Project listing:
 2) Quectel EG25-G Baseband Modem, quick instructions on how to work with the modem and the GNSS engine mostly through the AT commands and hardware analysis.
 
 3) Angelfish web browser for Plasma Mobile, an explanation of the cookies, ad-block filter lists, bookmarks, history  etc.
+
+4) Firefox mobile configuration on Manjaro Plasma Mobile & Phosh.
