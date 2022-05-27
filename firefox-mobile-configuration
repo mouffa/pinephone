@@ -2,6 +2,6 @@ On Manjaro in order to adapt Firefox with the mobile environment(either Plasma M
 
 `sudo pacman -S mobile-config-firefox`
 
-On Phosh the package should be already install because Firefox is the default browser.
+On Phosh the package should be already installed because Firefox is the default browser.
 
 All the Firefox data are located in `~/.firefox/` and the structure is the same as with Angelfish. 
